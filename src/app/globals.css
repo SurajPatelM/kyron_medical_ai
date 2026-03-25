@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+:root {
+  --kyron-navy: #0a1628;
+  --kyron-teal: #00d4aa;
+  --kyron-sky: #0ea5e9;
+}
+
+@theme inline {
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+}
+
+.mesh-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: linear-gradient(
+    125deg,
+    #060d18 0%,
+    #0a1628 35%,
+    #0c1f2e 55%,
+    #082a28 100%
+  );
+}
+
+.mesh-bg::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 20%, rgba(0, 212, 170, 0.12), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 85% 75%, rgba(14, 165, 233, 0.1), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(0, 212, 170, 0.06), transparent 45%);
+  animation: mesh-shift 20s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes mesh-shift {
+  0% {
+    opacity: 1;
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    opacity: 0.92;
+    transform: scale(1.05) translate(-1%, -1%);
+  }
+}
+
+@keyframes chat-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chat-enter {
+  animation: chat-enter 200ms ease-out both;
+}
+
+@keyframes msg-appear {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.msg-appear {
+  animation: msg-appear 150ms ease-out both;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 5px rgba(0, 212, 170, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 212, 170, 0.25);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+@keyframes typing-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.9);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.typing-dot {
+  animation: typing-dot 0.4s ease-in-out infinite;
+}

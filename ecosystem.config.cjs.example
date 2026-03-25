@@ -1,0 +1,17 @@
+/**
+ * Optional PM2 config (copy to ecosystem.config.cjs and adjust cwd).
+ * Or keep using: pm2 start npm --name kyron -- start
+ */
+module.exports = {
+  apps: [
+    {
+      name: "kyron",
+      cwd: "/home/ubuntu/kyron-patient-ai",
+      script: "npm",
+      args: "start",
+      env: {
+        NODE_ENV: "production",
+      },
+    },
+  ],
+};
