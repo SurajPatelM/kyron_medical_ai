@@ -32,3 +32,4 @@ Do **not** reply to the hiring email — use **only** their form link.
 
 - Deploy steps: [DEPLOY_EC2.md](DEPLOY_EC2.md)
 - Recording shot list: [VIDEO_OUTLINE.md](VIDEO_OUTLINE.md)
+- Push to GitHub: [GITHUB_SETUP.md](GITHUB_SETUP.md)
