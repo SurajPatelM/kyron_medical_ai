@@ -32,8 +32,11 @@ function isMorning(time: string): boolean {
 export async function runTool(
   name: string,
   input: Record<string, unknown>,
-  sessionId: string
+  sessionId: string,
+  opts?: { sendNotifications?: boolean }
 ): Promise<{ result: unknown; appointmentBooked?: Appointment; slotIds?: string[] }> {
+  const sendNotifications = opts?.sendNotifications ?? true;
+
   switch (name) {
     case "match_doctor": {
       const concern = String(input.concern ?? "");
@@ -156,9 +159,17 @@ export async function runTool(
       addAppointment(appointment);
       indexSessionPhone(sessionId, phone);
 
-      await sendAppointmentEmail(appointment);
-      if (smsOptIn) {
-        await sendAppointmentSms(appointment);
+      // Webhook handlers need to respond quickly; avoid awaiting notifications when running there.
+      if (sendNotifications) {
+        await sendAppointmentEmail(appointment);
+        if (smsOptIn) {
+          await sendAppointmentSms(appointment);
+        }
+      } else {
+        void sendAppointmentEmail(appointment).catch(() => undefined);
+        if (smsOptIn) {
+          void sendAppointmentSms(appointment).catch(() => undefined);
+        }
       }
 
       return {
