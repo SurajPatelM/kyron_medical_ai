@@ -2,6 +2,7 @@ import { getDoctorById, getSlotById } from "@/data/doctors";
 import {
   addAppointment,
   indexSessionPhone,
+  setSessionLastBookedAppointment,
   type Session,
 } from "@/data/store";
 import { matchDoctor } from "@/lib/matching";
@@ -129,7 +130,13 @@ export async function runTool(
         return { result: { success: false, error: "Slot does not match doctor." } };
       }
       if (found.slot.isBooked) {
-        return { result: { success: false, error: "That time was just booked." } };
+        return {
+          result: {
+            success: true,
+            alreadyBooked: true,
+            message: "This appointment was already confirmed.",
+          },
+        };
       }
 
       found.slot.isBooked = true;
@@ -157,6 +164,7 @@ export async function runTool(
       };
 
       addAppointment(appointment);
+      setSessionLastBookedAppointment(sessionId, appointment.id);
       indexSessionPhone(sessionId, phone);
 
       // Webhook handlers need to respond quickly; avoid awaiting notifications when running there.

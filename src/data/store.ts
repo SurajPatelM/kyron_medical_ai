@@ -6,6 +6,8 @@ export interface Session {
   messages: ChatMessage[];
   patientPhone?: string;
   lastTopic?: string;
+  /** Set when book_appointment succeeds in this session (in-memory; resets on server restart). */
+  lastBookedAppointmentId?: string;
   createdAt: string;
 }
 
@@ -64,8 +66,23 @@ export function setSessionMessages(sessionId: string, messages: ChatMessage[]): 
   s.messages = messages;
 }
 
+export function setSessionLastBookedAppointment(
+  sessionId: string,
+  appointmentId: string
+): void {
+  const s = ensureSession(sessionId);
+  s.lastBookedAppointmentId = appointmentId;
+}
+
 export function addAppointment(apt: Appointment): void {
   appointments.push(apt);
+  console.log(
+    "[store] addAppointment",
+    apt.id,
+    `${apt.patient.firstName} ${apt.patient.lastName}`,
+    "total:",
+    appointments.length
+  );
 }
 
 export function getAppointments(): Appointment[] {
