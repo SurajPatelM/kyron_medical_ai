@@ -7,7 +7,7 @@ import {
 } from "@/data/store";
 import { matchDoctor } from "@/lib/matching";
 import { sendAppointmentEmail } from "@/lib/email";
-import { sendAppointmentSms } from "@/lib/sms";
+import { sendSmsReminder } from "@/lib/sms";
 import type { Appointment, Doctor, Patient } from "@/types";
 import { v4 as uuidv4 } from "uuid";
 
@@ -170,15 +170,10 @@ export async function runTool(
       // Webhook handlers need to respond quickly; avoid awaiting notifications when running there.
       if (sendNotifications) {
         await sendAppointmentEmail(appointment);
-        if (smsOptIn) {
-          await sendAppointmentSms(appointment);
-        }
       } else {
         void sendAppointmentEmail(appointment).catch(() => undefined);
-        if (smsOptIn) {
-          void sendAppointmentSms(appointment).catch(() => undefined);
-        }
       }
+      // SMS is sent only via send_sms_reminder after the patient opts in (see system prompt).
 
       return {
         result: {
@@ -210,6 +205,37 @@ export async function runTool(
           prescription: prescriptionName,
           status: "In process — expected ready for pickup in 1–2 business days at our pharmacy partner.",
           note: "This is a simulated status for demo purposes.",
+        },
+      };
+    }
+
+    case "send_sms_reminder": {
+      const phone = String(input.phone ?? "");
+      const appointmentSummary = String(input.appointmentSummary ?? "");
+      if (!phone.trim() || !appointmentSummary.trim()) {
+        return {
+          result: {
+            success: false,
+            error: "phone and appointmentSummary are required.",
+          },
+        };
+      }
+      if (sendNotifications) {
+        const ok = await sendSmsReminder(phone, appointmentSummary);
+        return {
+          result: {
+            success: ok,
+            message: ok
+              ? "SMS confirmation sent."
+              : "SMS could not be sent. Verify TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER.",
+          },
+        };
+      }
+      void sendSmsReminder(phone, appointmentSummary).catch(() => undefined);
+      return {
+        result: {
+          success: true,
+          message: "SMS dispatched.",
         },
       };
     }

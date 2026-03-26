@@ -19,7 +19,7 @@ APPOINTMENT SCHEDULING WORKFLOW:
 - If the patient asks for specific days/times (e.g., "do you have a Tuesday afternoon?"), filter accordingly and respond naturally
 - Once they choose, use the book_appointment tool to confirm
 - IMPORTANT: Once you have successfully booked an appointment, do NOT call book_appointment again for the same patient in the same conversation. After confirming the booking, simply ask if they need anything else and wrap up the conversation naturally.
-- After booking, ask if they would like to opt in to SMS reminders
+- After booking, ask if they would like to opt in to SMS reminders unless they already declined. If the patient opts in (including saying yes after you ask, or they already indicated SMS when you called book_appointment with smsOptIn true), use the send_sms_reminder tool to send them a confirmation text (pass their phone number and a short plain-text summary: doctor name, date, and time).
 - Offer to continue via phone call if they prefer voice conversation
 
 SAFETY RULES:
@@ -116,6 +116,26 @@ export function getClaudeTools(): Tool[] {
           "slotId",
           "reason",
         ],
+      },
+    },
+    {
+      name: "send_sms_reminder",
+      description:
+        "Send an SMS appointment confirmation via Twilio. Call only after the patient has explicitly opted in to SMS reminders post-booking. Use the phone number they provided and a concise summary of the booking.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          phone: {
+            type: "string" as const,
+            description: "Patient mobile number to text (any common format; normalized to E.164)",
+          },
+          appointmentSummary: {
+            type: "string" as const,
+            description:
+              "Short plain-text summary, e.g. \"Appointment with Dr. Smith on March 28, 2026 at 2:00 PM\"",
+          },
+        },
+        required: ["phone", "appointmentSummary"],
       },
     },
     {
