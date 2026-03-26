@@ -1,0 +1,21 @@
+# Runtime / platform requirements for Kyron Patient AI
+
+Node.js>=20.0.0
+npm>=10.0.0
+
+# Core app dependencies (from package.json)
+next==16.2.1
+react==19.2.4
+react-dom==19.2.4
+@anthropic-ai/sdk==0.80.0
+resend==6.9.4
+twilio==5.13.1
+uuid==13.0.0
+lucide-react==1.7.0
+
+# Infrastructure / external services required for full feature set
+Anthropic API key
+Vapi account + assistant + phone number
+Resend API key + verified sender domain/email
+Twilio account SID + auth token + SMS-capable phone number
+AWS EC2 instance + domain + TLS (Let's Encrypt)
