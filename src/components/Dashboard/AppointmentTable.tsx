@@ -18,12 +18,13 @@ export default function AppointmentTable({ appointments }: Props) {
 
   return (
     <GlassCard className="overflow-x-auto border-white/[0.12]">
-      <table className="w-full min-w-[640px] text-left text-sm text-slate-200">
+      <table className="w-full min-w-[900px] text-left text-sm text-slate-200">
         <thead>
           <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-teal-300/90">
-            <th className="px-4 py-3 font-semibold">Patient</th>
+            <th className="px-4 py-3 font-semibold">Patient Name</th>
             <th className="px-4 py-3 font-semibold">Doctor</th>
-            <th className="px-4 py-3 font-semibold">Date / time</th>
+            <th className="px-4 py-3 font-semibold">Specialty</th>
+            <th className="px-4 py-3 font-semibold">Date / Time</th>
             <th className="px-4 py-3 font-semibold">Reason</th>
             <th className="px-4 py-3 font-semibold">Status</th>
           </tr>
@@ -39,10 +40,8 @@ export default function AppointmentTable({ appointments }: Props) {
               </td>
               <td className="px-4 py-3">
                 {a.doctor.name}
-                <span className="mt-0.5 block text-xs text-slate-500">
-                  {a.doctor.specialty}
-                </span>
               </td>
+              <td className="px-4 py-3 text-slate-300">{a.doctor.specialty}</td>
               <td className="px-4 py-3 text-slate-300">
                 {a.slot.date}
                 <span className="block text-slate-400">{a.slot.time}</span>

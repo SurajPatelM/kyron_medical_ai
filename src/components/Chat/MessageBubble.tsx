@@ -8,6 +8,32 @@ interface MessageBubbleProps {
   onSlotPick?: (slotId: string, label: string) => void;
 }
 
+function renderBoldAndBreaks(text: string) {
+  const lines = text.split("\n");
+
+  return (
+    <>
+      {lines.map((line, lineIdx) => {
+        // Very small subset of markdown:
+        // - convert **bold** into <strong>
+        // - convert newlines into <br/>
+        const parts = line.split(/(\*\*[^*]+\*\*)/g).filter((p) => p !== "");
+        return (
+          <span key={lineIdx}>
+            {parts.map((p, idx) => {
+              if (p.startsWith("**") && p.endsWith("**") && p.length >= 4) {
+                return <strong key={idx}>{p.slice(2, -2)}</strong>;
+              }
+              return <span key={idx}>{p}</span>;
+            })}
+            {lineIdx < lines.length - 1 ? <br /> : null}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
 export default function MessageBubble({
   message,
   onSlotPick,
@@ -29,8 +55,8 @@ export default function MessageBubble({
             : "max-w-[85%] border-teal-500/20 bg-white/[0.07] px-4 py-3"
         }
       >
-        <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-slate-100">
-          {message.content}
+        <p className="text-[15px] leading-relaxed text-slate-100">
+          {renderBoldAndBreaks(message.content)}
         </p>
         {!isUser &&
         message.suggestedSlots?.length &&

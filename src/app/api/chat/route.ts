@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     let slotBatch: { ids: string[]; labels: { id: string; label: string }[] } | undefined;
     const tools = getClaudeTools();
 
-    for (let round = 0; round < 8; round++) {
+    for (let round = 0; round < 12; round++) {
       const response = await client.messages.create({
         model: CLAUDE_MODEL,
         max_tokens: 4096,
@@ -84,14 +84,43 @@ export async function POST(req: NextRequest) {
         messages: apiMessages,
       });
 
+      // Continue the tool loop until Claude returns a normal text end_turn response.
       if (response.stop_reason === "tool_use") {
         const blocks = response.content;
+        const toolUseBlocks = blocks.filter(
+          (b): b is Extract<typeof blocks[number], { type: "tool_use" }> =>
+            b.type === "tool_use"
+        );
+
+        // If the model says it wants tools but provided none, fall back to text extraction.
+        if (!toolUseBlocks.length) {
+          const replyText = extractText(response.content);
+          const assistantMsg: ChatMessage = {
+            id: uuidv4(),
+            role: "assistant",
+            content: replyText,
+            createdAt: new Date().toISOString(),
+            slotIds: slotBatch?.ids,
+            suggestedSlots:
+              slotBatch && slotBatch.labels.length > 0
+                ? slotBatch.labels
+                : undefined,
+          };
+          appendMessage(sessionId, assistantMsg);
+
+          return NextResponse.json({
+            reply: replyText,
+            sessionId,
+            appointmentBooked,
+            suggestedSlots: slotBatch,
+          });
+        }
+
         apiMessages = [...apiMessages, { role: "assistant", content: blocks }];
 
         const toolResults: ToolResultBlockParam[] = [];
 
-        for (const block of blocks) {
-          if (block.type !== "tool_use") continue;
+        for (const block of toolUseBlocks) {
           const input = block.input as Record<string, unknown>;
           if (block.name === "match_doctor") {
             updateSessionTopicFromConcern(session, input);
@@ -105,8 +134,9 @@ export async function POST(req: NextRequest) {
 
           if (booked) appointmentBooked = booked;
           if (slotIds?.length) {
-            const slots = (result as { slots?: { slotId: string; label: string }[] })
-              .slots;
+            const slots = (
+              result as { slots?: { slotId: string; label: string }[] }
+            ).slots;
             slotBatch = {
               ids: slotIds,
               labels:
@@ -121,10 +151,7 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        apiMessages = [
-          ...apiMessages,
-          { role: "user", content: toolResults },
-        ];
+        apiMessages = [...apiMessages, { role: "user", content: toolResults }];
         continue;
       }
 
