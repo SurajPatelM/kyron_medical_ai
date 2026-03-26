@@ -3,21 +3,32 @@ import {
   ensureSession,
   lookupSessionByPhone,
   newSessionId,
-  transcriptForSession,
   appendMessage,
 } from "@/data/store";
 import { runTool, updateSessionTopicFromConcern } from "@/lib/chat-tools";
+import { normalizeVapiToolCalls, vapiToolResultString } from "@/lib/vapi-webhook";
 import type { ChatMessage } from "@/types";
 
+type VapiToolResultRow = {
+  name: string;
+  toolCallId: string;
+  result?: string;
+  error?: string;
+};
+
 /**
- * Vapi server URL webhook (inbound). Configure in Vapi dashboard when deployed.
- * Payload shapes vary — we defensively read caller id from common fields.
+ * Vapi server URL webhook (inbound + tool-calls). Configure in Vapi dashboard when deployed.
+ * @see https://docs.vapi.ai/server-url/events
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const message = body?.message;
     const type = message?.type as string | undefined;
+    const messageRec =
+      message && typeof message === "object" && !Array.isArray(message)
+        ? (message as Record<string, unknown>)
+        : {};
 
     const caller =
       message?.call?.customer?.number ??
@@ -26,53 +37,52 @@ export async function POST(req: NextRequest) {
       message?.from ??
       body?.from;
 
-    // Tool calls require a response (results array). All other events can be 200-OK quickly.
     if (type === "tool-calls") {
       const phone = typeof caller === "string" ? caller : undefined;
 
-      const toolCallList: Array<{
-        id: string;
-        name: string;
-        parameters?: Record<string, unknown>;
-      }> = Array.isArray(message?.toolCallList) ? message.toolCallList : [];
+      const normalized = normalizeVapiToolCalls(messageRec);
+      if (normalized.length === 0) {
+        console.warn(
+          "vapi webhook tool-calls: no calls parsed",
+          JSON.stringify(message).slice(0, 800)
+        );
+      }
 
       const resolvedSessionId = phone
         ? lookupSessionByPhone(phone)?.id ?? newSessionId()
         : newSessionId();
       const ensuredSession = ensureSession(resolvedSessionId);
 
-      const results: Array<{
-        name: string;
-        toolCallId: string;
-        result: string;
-      }> = [];
+      const results: VapiToolResultRow[] = [];
 
-      // Execute each tool sequentially. Booking should save to the same in-memory store as chat.
-      // Do NOT send email/SMS here; respond quickly to Vapi.
-      for (const toolCall of toolCallList) {
-        const toolName = String(toolCall.name ?? "");
-        const params = (toolCall.parameters ?? {}) as Record<string, unknown>;
-        if (!toolName) continue;
-
-        if (toolName === "match_doctor") {
-          updateSessionTopicFromConcern(ensuredSession, params);
+      for (const tc of normalized) {
+        if (tc.name === "match_doctor") {
+          updateSessionTopicFromConcern(ensuredSession, tc.parameters);
         }
 
-        const { result } = await runTool(toolName, params, resolvedSessionId, {
-          sendNotifications: false,
-        });
-
-        results.push({
-          name: toolName,
-          toolCallId: String(toolCall.id ?? ""),
-          result: JSON.stringify(result),
-        });
+        try {
+          const { result } = await runTool(tc.name, tc.parameters, resolvedSessionId, {
+            sendNotifications: false,
+          });
+          results.push({
+            name: tc.name,
+            toolCallId: tc.toolCallId,
+            result: vapiToolResultString(result),
+          });
+        } catch (err) {
+          const msg =
+            err instanceof Error ? err.message : "Tool execution failed";
+          results.push({
+            name: tc.name,
+            toolCallId: tc.toolCallId,
+            error: vapiToolResultString(msg),
+          });
+        }
       }
 
-      return NextResponse.json({ results });
+      return NextResponse.json({ results }, { status: 200 });
     }
 
-    // Store voice transcript into the same in-memory session (best-effort).
     if (type === "end-of-call-report") {
       const phone = typeof caller === "string" ? caller : undefined;
       if (phone) {
@@ -80,7 +90,10 @@ export async function POST(req: NextRequest) {
         if (session) {
           const transcript: string | undefined = message?.artifact?.transcript;
           if (transcript && typeof transcript === "string") {
-            const trimmed = transcript.length > 4000 ? `${transcript.slice(0, 4000)}...` : transcript;
+            const trimmed =
+              transcript.length > 4000
+                ? `${transcript.slice(0, 4000)}...`
+                : transcript;
             const voiceMsg: ChatMessage = {
               id: newSessionId(),
               role: "assistant",
@@ -94,43 +107,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Default: inbound call / assistant-request flow. Keep existing behavior.
-    if (!caller || typeof caller !== "string") {
-      return NextResponse.json({ ok: true });
-    }
+    // Only assistant-request should receive assistantOverrides (not status-update, etc.).
+    if (type === "assistant-request" && caller && typeof caller === "string") {
+      const session = lookupSessionByPhone(caller);
+      if (!session) {
+        return NextResponse.json({
+          assistantOverrides: {
+            firstMessage:
+              "Hi, thanks for calling Kyron Medical! How can I help you today?",
+          },
+        });
+      }
 
-    const session = lookupSessionByPhone(caller);
-    if (!session) {
+      const topic = session.lastTopic
+        ? session.lastTopic
+        : "your care with us";
+
+      // Do not override model.messages here — that can strip tools defined on the saved assistant.
       return NextResponse.json({
         assistantOverrides: {
-          firstMessage:
-            "Hi, thanks for calling Kyron Medical! How can I help you today?",
+          firstMessage: `Welcome back! Last time we spoke about ${topic}. How can I help you today?`,
         },
       });
     }
 
-    const transcript = transcriptForSession(session);
-    const topic = session.lastTopic
-      ? session.lastTopic
-      : "your care with us";
-
-    const context = transcript
-      ? `\n\nThe patient previously chatted on the web. Transcript:\n${transcript}\n`
-      : "";
-
-    return NextResponse.json({
-      assistantOverrides: {
-        model: {
-          messages: [
-            {
-              role: "system" as const,
-              content: `You are Kyron Medical's patient assistant.${context}Welcome them back naturally and reference: ${topic}. Do not give medical advice.`,
-            },
-          ],
-        },
-        firstMessage: `Welcome back! Last time we spoke about ${topic}. How can I help you today?`,
-      },
-    });
+    return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("vapi webhook:", e);
     return NextResponse.json({ ok: true });

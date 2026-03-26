@@ -1,5 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, transcriptForSession } from "@/data/store";
+import {
+  ensureSession,
+  getSession,
+  indexSessionPhone,
+  transcriptForSession,
+} from "@/data/store";
+
+function lastUserSnippet(
+  session: NonNullable<ReturnType<typeof getSession>>,
+  max = 180
+): string | null {
+  for (let i = session.messages.length - 1; i >= 0; i--) {
+    const m = session.messages[i];
+    if (m.role === "user") {
+      const t = m.content.replace(/\s+/g, " ").trim();
+      if (!t) return null;
+      return t.length <= max ? t : `${t.slice(0, max - 1)}…`;
+    }
+  }
+  return null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,26 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     const session = getSession(sessionId);
-    const chatTranscript = session
-      ? transcriptForSession(session)
-      : "";
-
-    const contextMessage = chatTranscript
-      ? `\n\nCONTEXT FROM PRIOR WEB CHAT:\nThe patient has already been chatting via web. Here is the transcript so far:\n${chatTranscript}\n\nContinue the conversation naturally. Greet the patient by name if known, briefly acknowledge what was discussed, and ask how you can continue helping.`
-      : "";
-
-    const systemPrompt = `You are a friendly, professional patient assistant for Kyron Medical, a physician group. You help patients with:
-
-1. APPOINTMENT SCHEDULING: Collect patient info, understand their medical concern, match them to the right specialist, and help them pick an available time slot.
-2. PRESCRIPTION REFILL STATUS: Ask for their name and prescription, then provide a mock status update.
-3. OFFICE INFORMATION: Provide practice hours (Mon-Fri 8 AM - 5 PM) and address (245 Wellness Drive, Suite 300, Boston, MA 02115).
-
-SAFETY RULES:
-- NEVER provide medical advice, diagnoses, or treatment recommendations
-- NEVER say anything that could be interpreted as a medical opinion
-- If asked medical questions, say: "I'm not qualified to provide medical advice. Please discuss that with your doctor during your appointment."
-
-TONE: Warm, concise, professional. Like a friendly medical receptionist.${contextMessage}`;
+    const chatTranscript = session ? transcriptForSession(session) : "";
 
     const phoneNumberId =
       process.env.VAPI_PHONE_NUMBER_ID || "1733ac9f-e943-40db-ac82-9deb2394094c";
@@ -52,6 +53,21 @@ TONE: Warm, concise, professional. Like a friendly medical receptionist.${contex
       ? rawPhone
       : `+1${rawPhone.replace(/\D/g, "")}`;
 
+    // Ensure session exists (chat may not have hit API yet) and map phone → session for webhooks.
+    ensureSession(sessionId);
+    indexSessionPhone(sessionId, e164);
+
+    let firstMessage: string;
+    if (chatTranscript.trim() && session) {
+      const hint = lastUserSnippet(session);
+      firstMessage = hint
+        ? `Hi! I'm Kyron Medical's assistant, picking up from your web chat. Last you mentioned: ${hint}. How can I help you now?`
+        : `Hi! I'm Kyron Medical's assistant, continuing from your web chat. How can I help you now?`;
+    } else {
+      firstMessage =
+        `Hi, thanks for calling Kyron Medical! I'm here to help with appointments, prescription refills, or office information. What can I do for you?`;
+    }
+
     const response = await fetch("https://api.vapi.ai/call/phone", {
       method: "POST",
       headers: {
@@ -62,20 +78,9 @@ TONE: Warm, concise, professional. Like a friendly medical receptionist.${contex
         phoneNumberId,
         assistantId,
         customer: { number: e164 },
+        // Only override firstMessage. Overriding model.messages removes tools from the saved assistant.
         assistantOverrides: {
-          model: {
-            provider: "anthropic",
-            model: "claude-sonnet-4-20250514",
-            messages: [
-              {
-                role: "system",
-                content: systemPrompt,
-              },
-            ],
-          },
-          firstMessage: chatTranscript
-            ? `Hi! I'm continuing our conversation from the web chat. How can I keep helping you?`
-            : `Hi, thanks for calling Kyron Medical! I'm here to help with appointments, prescription refills, or office information. What can I do for you?`,
+          firstMessage,
         },
       }),
     });

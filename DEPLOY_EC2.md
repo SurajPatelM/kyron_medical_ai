@@ -42,7 +42,7 @@ Required for interview demo:
 | Variable | Purpose |
 |----------|---------|
 | `ANTHROPIC_API_KEY` | Chat |
-| `VAPI_API_KEY`, `VAPI_PHONE_NUMBER_ID`, `VAPI_ASSISTANT_ID` | Outbound voice |
+| `VAPI_API_KEY`, `VAPI_PHONE_NUMBER_ID`, `VAPI_ASSISTANT_ID` | Outbound + inbound voice — also configure dashboard per [VAPI_SETUP.md](VAPI_SETUP.md) |
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Email (use verified domain in Resend) |
 | `TWILIO_*` | Optional SMS |
 | `NEXT_PUBLIC_APP_URL` | `https://yourdomain.com` |

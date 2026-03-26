@@ -7,6 +7,7 @@ Full-stack Next.js app: patient chat with Claude (tool use for scheduling), opti
 | Deliverable | In this repo |
 |-------------|----------------|
 | **EC2 + HTTPS** | Step-by-step: [DEPLOY_EC2.md](DEPLOY_EC2.md), Nginx example: [deploy/nginx-kyron.conf.example](deploy/nginx-kyron.conf.example) |
+| **Vapi tools + webhook** | [VAPI_SETUP.md](VAPI_SETUP.md) — Server URL, function names/schemas, smoke test |
 | **Video** | Shot list: [VIDEO_OUTLINE.md](VIDEO_OUTLINE.md) |
 | **GitHub + form** | Push steps: [GITHUB_SETUP.md](GITHUB_SETUP.md) — checklist: [SUBMISSION.md](SUBMISSION.md) |
 | **Pre-push verify** | `bash scripts/verify-submission.sh` |
