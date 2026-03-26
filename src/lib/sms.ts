@@ -50,15 +50,18 @@ export async function sendSmsReminder(
 
   const body =
     `${summary} Reply STOP to opt out. - Kyron Medical`.slice(0, 1600);
+  const from = t.from;
+  console.log("[SMS] Sending SMS to:", to, "from:", from);
 
   try {
     await t.client.messages.create({
       body,
-      from: t.from,
+      from,
       to,
     });
     return true;
   } catch (e) {
+    console.error("[SMS] Twilio error:", e);
     console.error("sendSmsReminder:", e);
     return false;
   }

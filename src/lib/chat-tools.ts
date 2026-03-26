@@ -212,6 +212,10 @@ export async function runTool(
     case "send_sms_reminder": {
       const phone = String(input.phone ?? "");
       const appointmentSummary = String(input.appointmentSummary ?? "");
+      console.log("[SMS] send_sms_reminder called with:", {
+        phone,
+        appointmentSummary,
+      });
       if (!phone.trim() || !appointmentSummary.trim()) {
         return {
           result: {
